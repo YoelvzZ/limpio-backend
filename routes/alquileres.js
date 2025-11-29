@@ -8,7 +8,7 @@ const db = admin.firestore();
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { estado } = req.query; // activo, finalizado
+    const { estado } = req.query;
     
     let query = db.collection('alquileres').where('userId', '==', userId);
     
@@ -73,7 +73,6 @@ router.post('/', async (req, res) => {
     
     const docRef = await db.collection('alquileres').add(nuevoAlquiler);
     
-    // Actualizar estado de lavadora
     await db.collection('lavadoras').doc(lavadoraId).update({
       estado: 'alquilada'
     });
@@ -107,19 +106,16 @@ router.put('/:alquilerId/finalizar', async (req, res) => {
     
     const alquilerData = alquilerDoc.data();
     
-    // Actualizar alquiler
     await db.collection('alquileres').doc(alquilerId).update({
       estado: 'finalizado',
       pagado: pagado || false,
       fechaFinalizacion: admin.firestore.FieldValue.serverTimestamp()
     });
     
-    // Liberar lavadora
     await db.collection('lavadoras').doc(alquilerData.lavadoraId).update({
       estado: 'disponible'
     });
     
-    // Si no está pagado, mover a pendientes
     if (!pagado) {
       await db.collection('pendientesCobro').add({
         userId: alquilerData.userId,
@@ -128,7 +124,6 @@ router.put('/:alquilerId/finalizar', async (req, res) => {
         fechaRetiro: admin.firestore.FieldValue.serverTimestamp()
       });
     } else {
-      // Si está pagado, mover a historial
       await db.collection('historial').add({
         userId: alquilerData.userId,
         alquilerId: alquilerId,
@@ -160,7 +155,6 @@ router.delete('/:alquilerId', async (req, res) => {
     if (alquilerDoc.exists) {
       const alquilerData = alquilerDoc.data();
       
-      // Liberar lavadora
       await db.collection('lavadoras').doc(alquilerData.lavadoraId).update({
         estado: 'disponible'
       });
