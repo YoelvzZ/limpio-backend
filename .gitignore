@@ -4,4 +4,3 @@ node_modules/
 *.log
 serviceAccountKey.json
 serviceAccountKey.json.json
-*.json
