@@ -243,4 +243,33 @@ router.put('/pendientes/:pendienteId/pagar', async (req, res) => {
   }
 });
 
+// OBTENER HISTORIAL DE UN USUARIO
+router.get('/historial/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const historialSnapshot = await db.collection('historial')
+      .where('userId', '==', userId)
+      .orderBy('fechaPago', 'desc')
+      .get();
+    
+    const historial = [];
+    historialSnapshot.forEach(doc => {
+      historial.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json(historial);
+
+  } catch (error) {
+    console.error('Error al obtener historial:', error);
+    res.status(500).json({ 
+      error: 'Error al obtener historial',
+      detalle: error.message 
+    });
+  }
+});
+
 module.exports = router;

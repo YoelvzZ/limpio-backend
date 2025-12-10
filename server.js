@@ -20,6 +20,7 @@ app.use('/api/lavadoras', lavadorasRoutes);
 app.use('/api/alquileres', alquileresRoutes);
 app.use('/api/pendientes', alquileresRoutes);
 app.use('/api/pagos', pagosRoutes);
+app.use('/api/historial', alquileresRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
