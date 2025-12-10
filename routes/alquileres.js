@@ -174,5 +174,73 @@ router.delete('/:alquilerId', async (req, res) => {
     });
   }
 });
+// ============================================
+// RUTAS PARA PENDIENTES DE COBRO
+// ============================================
+
+// OBTENER PENDIENTES DE COBRO DE UN USUARIO
+router.get('/pendientes/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const pendientesSnapshot = await db.collection('pendientesCobro')
+      .where('userId', '==', userId)
+      .orderBy('fechaRetiro', 'desc')
+      .get();
+    
+    const pendientes = [];
+    pendientesSnapshot.forEach(doc => {
+      pendientes.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json(pendientes);
+
+  } catch (error) {
+    console.error('Error al obtener pendientes:', error);
+    res.status(500).json({ 
+      error: 'Error al obtener pendientes',
+      detalle: error.message 
+    });
+  }
+});
+
+// MARCAR PENDIENTE COMO PAGADO
+router.put('/pendientes/:pendienteId/pagar', async (req, res) => {
+  try {
+    const { pendienteId } = req.params;
+    
+    const pendienteDoc = await db.collection('pendientesCobro').doc(pendienteId).get();
+    
+    if (!pendienteDoc.exists) {
+      return res.status(404).json({ error: 'Pendiente no encontrado' });
+    }
+    
+    const pendienteData = pendienteDoc.data();
+    
+    // Mover a historial
+    await db.collection('historial').add({
+      ...pendienteData,
+      pagado: true,
+      fechaPago: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Eliminar de pendientes
+    await db.collection('pendientesCobro').doc(pendienteId).delete();
+    
+    res.json({
+      mensaje: 'Pago registrado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error al registrar pago:', error);
+    res.status(500).json({ 
+      error: 'Error al registrar pago',
+      detalle: error.message 
+    });
+  }
+});
 
 module.exports = router;

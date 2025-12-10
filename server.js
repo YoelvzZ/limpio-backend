@@ -18,6 +18,7 @@ const pagosRoutes = require('./routes/pagos');
 app.use('/api/auth', authRoutes);
 app.use('/api/lavadoras', lavadorasRoutes);
 app.use('/api/alquileres', alquileresRoutes);
+app.use('/api/pendientes', alquileresRoutes);
 app.use('/api/pagos', pagosRoutes);
 
 // Ruta de prueba
