@@ -24,7 +24,7 @@ app.use('/api/historial', alquileresRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
-  res.json({ mensaje: '¡API de Limpio funcionando! 🚀' });
+  res.json({ mensaje: '¡API de Limpio funcionando! 🚀 - Actualizado Dec 14' });
 });
 
 // Iniciar servidor
