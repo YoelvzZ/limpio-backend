@@ -78,15 +78,8 @@ router.post('/', async (req, res) => {
       estado: 'alquilada'
     });
     
-    // Si ya está marcado como pagado al crearlo, agregar al historial
-    if (pagado) {
-      await db.collection('historial').add({
-        userId: userId,
-        alquilerId: docRef.id,
-        ...nuevoAlquiler,
-        fechaPago: admin.firestore.FieldValue.serverTimestamp()
-      });
-    }
+    // NO AGREGAMOS A HISTORIAL NI PENDIENTES AL CREAR
+    // Solo cuando se finalice
     
     res.status(201).json({
       mensaje: 'Alquiler creado exitosamente',
