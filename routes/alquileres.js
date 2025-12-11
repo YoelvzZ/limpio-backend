@@ -48,7 +48,8 @@ router.post('/', async (req, res) => {
       direccion, 
       fechaInicio, 
       fechaFin, 
-      precio 
+      precio,
+      pagado
     } = req.body;
     
     if (!userId || !lavadoraId || !direccion || !fechaInicio || !fechaFin || !precio) {
@@ -66,7 +67,7 @@ router.post('/', async (req, res) => {
       fechaInicio: new Date(fechaInicio),
       fechaFin: new Date(fechaFin),
       precio: parseFloat(precio),
-      pagado: false,
+      pagado: pagado || false,
       estado: 'activo',
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -76,6 +77,16 @@ router.post('/', async (req, res) => {
     await db.collection('lavadoras').doc(lavadoraId).update({
       estado: 'alquilada'
     });
+    
+    // Si ya está marcado como pagado al crearlo, agregar al historial
+    if (pagado) {
+      await db.collection('historial').add({
+        userId: userId,
+        alquilerId: docRef.id,
+        ...nuevoAlquiler,
+        fechaPago: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
     
     res.status(201).json({
       mensaje: 'Alquiler creado exitosamente',
@@ -117,18 +128,22 @@ router.put('/:alquilerId/finalizar', async (req, res) => {
     });
     
     if (!pagado) {
+      // Agregar a pendientes de cobro con pagado=false
       await db.collection('pendientesCobro').add({
         userId: alquilerData.userId,
         alquilerId: alquilerId,
         ...alquilerData,
+        pagado: false,
         fechaRetiro: admin.firestore.FieldValue.serverTimestamp()
       });
     } else {
+      // Agregar directamente al historial
       await db.collection('historial').add({
         userId: alquilerData.userId,
         alquilerId: alquilerId,
         ...alquilerData,
-        fechaFinalizacion: admin.firestore.FieldValue.serverTimestamp()
+        pagado: true,
+        fechaPago: admin.firestore.FieldValue.serverTimestamp()
       });
     }
     
@@ -174,26 +189,38 @@ router.delete('/:alquilerId', async (req, res) => {
     });
   }
 });
+
 // ============================================
 // RUTAS PARA PENDIENTES DE COBRO
 // ============================================
 
-// OBTENER PENDIENTES DE COBRO DE UN USUARIO
+// OBTENER PENDIENTES DE COBRO DE UN USUARIO (SOLO NO PAGADOS)
 router.get('/pendientes/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
+    // Obtener todos los pendientes primero
     const pendientesSnapshot = await db.collection('pendientesCobro')
       .where('userId', '==', userId)
-      .orderBy('fechaRetiro', 'desc')
       .get();
     
     const pendientes = [];
     pendientesSnapshot.forEach(doc => {
-      pendientes.push({
-        id: doc.id,
-        ...doc.data()
-      });
+      const data = doc.data();
+      // Filtrar manualmente los que NO están pagados
+      if (data.pagado !== true) {
+        pendientes.push({
+          id: doc.id,
+          ...data
+        });
+      }
+    });
+    
+    // Ordenar por fecha más reciente
+    pendientes.sort((a, b) => {
+      const fechaA = a.fechaRetiro?.seconds || 0;
+      const fechaB = b.fechaRetiro?.seconds || 0;
+      return fechaB - fechaA;
     });
     
     res.json(pendientes);
@@ -248,9 +275,9 @@ router.get('/historial/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
+    // Obtener todos primero sin ordenar
     const historialSnapshot = await db.collection('historial')
       .where('userId', '==', userId)
-      .orderBy('fechaPago', 'desc')
       .get();
     
     const historial = [];
@@ -259,6 +286,13 @@ router.get('/historial/:userId', async (req, res) => {
         id: doc.id,
         ...doc.data()
       });
+    });
+    
+    // Ordenar manualmente por fecha de pago más reciente
+    historial.sort((a, b) => {
+      const fechaA = a.fechaPago?.seconds || a.fechaFinalizacion?.seconds || 0;
+      const fechaB = b.fechaPago?.seconds || b.fechaFinalizacion?.seconds || 0;
+      return fechaB - fechaA;
     });
     
     res.json(historial);
