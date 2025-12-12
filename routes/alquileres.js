@@ -38,7 +38,6 @@ router.get('/:userId', async (req, res) => {
 });
 
 // CREAR ALQUILER
-// CREAR ALQUILER
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -68,8 +67,8 @@ router.post('/', async (req, res) => {
       fechaInicio: new Date(fechaInicio),
       fechaFin: new Date(fechaFin),
       precio: parseFloat(precio),
-      pagado: pagado || false,  // SOLO GUARDA EL ESTADO
-      estado: 'activo',          // SIEMPRE ACTIVO
+      pagado: pagado || false,
+      estado: 'activo',
       fechaCreacion: admin.firestore.FieldValue.serverTimestamp()
     };
     
@@ -79,7 +78,8 @@ router.post('/', async (req, res) => {
       estado: 'alquilada'
     });
     
-    // NO HACER NADA MÁS - Solo crear el alquiler
+    // NO AGREGAMOS A HISTORIAL NI PENDIENTES AL CREAR
+    // Solo cuando se finalice
     
     res.status(201).json({
       mensaje: 'Alquiler creado exitosamente',
@@ -97,7 +97,6 @@ router.post('/', async (req, res) => {
 });
 
 // FINALIZAR ALQUILER
-// FINALIZAR ALQUILER
 router.put('/:alquilerId/finalizar', async (req, res) => {
   try {
     const { alquilerId } = req.params;
@@ -111,42 +110,31 @@ router.put('/:alquilerId/finalizar', async (req, res) => {
     
     const alquilerData = alquilerDoc.data();
     
-    // Actualizar estado del alquiler
     await db.collection('alquileres').doc(alquilerId).update({
       estado: 'finalizado',
+      pagado: pagado || false,
       fechaFinalizacion: admin.firestore.FieldValue.serverTimestamp()
     });
     
-    // Liberar lavadora
     await db.collection('lavadoras').doc(alquilerData.lavadoraId).update({
       estado: 'disponible'
     });
     
     if (!pagado) {
-      // NO PAGADO → Pendientes de Cobro
+      // Agregar a pendientes de cobro con pagado=false
       await db.collection('pendientesCobro').add({
         userId: alquilerData.userId,
         alquilerId: alquilerId,
-        lavadoraId: alquilerData.lavadoraId,
-        tipoVia: alquilerData.tipoVia,
-        direccion: alquilerData.direccion,
-        precio: alquilerData.precio,
-        fechaInicio: alquilerData.fechaInicio,
-        fechaFin: alquilerData.fechaFin,
+        ...alquilerData,
         pagado: false,
         fechaRetiro: admin.firestore.FieldValue.serverTimestamp()
       });
     } else {
-      // PAGADO → Historial
+      // Agregar directamente al historial
       await db.collection('historial').add({
         userId: alquilerData.userId,
         alquilerId: alquilerId,
-        lavadoraId: alquilerData.lavadoraId,
-        tipoVia: alquilerData.tipoVia,
-        direccion: alquilerData.direccion,
-        precio: alquilerData.precio,
-        fechaInicio: alquilerData.fechaInicio,
-        fechaFin: alquilerData.fechaFin,
+        ...alquilerData,
         pagado: true,
         fechaPago: admin.firestore.FieldValue.serverTimestamp()
       });
